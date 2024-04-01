@@ -1,6 +1,6 @@
 
-from PyQt5.QtWidgets import ( QApplication, QMainWindow, QAction, QLineEdit, QTextEdit, QLabel, QComboBox, QMessageBox,
-                              QWidget, QVBoxLayout, QHBoxLayout, QDesktopWidget, QPushButton, QDialog, QSplitter )
+from PyQt5.QtWidgets import ( QApplication, QMainWindow, QAction, QLineEdit, QTextEdit, QLabel, QWidget, QDialog, QSplitter,
+                              QComboBox, QVBoxLayout, QHBoxLayout, QDesktopWidget, QPushButton, QMessageBox, QFileDialog )
 from PyQt5.QtCore import Qt
 from sys import argv, exit
 import requests
@@ -29,39 +29,58 @@ def DictToStr(dic: dict):
 
 
 class Response(QDialog):
-    def __init__(self, headers: str, text: str):
+    def __init__(self, headers, text):
         super().__init__(window)
         self.setWindowTitle('Response')
-        self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint | Qt.WindowTitleHint |Qt.WindowSystemMenuHint |
-                            Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
-        self.setMinimumSize(600, 450)
+        self.setWindowFlags( Qt.Window | Qt.CustomizeWindowHint | Qt.WindowTitleHint |Qt.WindowSystemMenuHint |
+                             Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint )
+        self.setMinimumSize(600, 475)
+        
         layout = QVBoxLayout()
+        self.setLayout(layout)
         
-        layout.addWidget(QLabel('Response headers', self))
-        
-        self.headers = QTextEdit(self)
-        self.headers.setReadOnly(True)
-        self.headers.setText(headers)
-        layout.addWidget(self.headers)
-        
-        layout.addWidget(QLabel('Response text', self))
-        
-        self.text = QTextEdit(self)
-        self.text.setAcceptRichText(False)
-        self.text.setReadOnly(True)
-        self.text.setPlainText(text)
-        layout.addWidget(self.text)
+        splitter = QSplitter(Qt.Vertical, self)
+        splitter.addWidget(self.newWidget('Headers', headers))
+        splitter.addWidget(self.newWidget('Response', text))
+        layout.addWidget(splitter)
         
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
+        save_headers = QPushButton('Save Headers', self)
+        save_headers.setMinimumWidth(125)
+        save_headers.clicked.connect(lambda: self.toFile(headers))
+        btn_layout.addWidget(save_headers)
+        
+        save_text = QPushButton('Save Response', self)
+        save_text.setMinimumWidth(135)
+        save_text.clicked.connect(lambda: self.toFile(text))
+        btn_layout.addWidget(save_text)
+        
         close = QPushButton('Close', self)
         close.clicked.connect(self.accept)
+        close.setFocus(True)
         btn_layout.addWidget(close)
         
         layout.addLayout(btn_layout)
-        
-        self.setLayout(layout)
+    
+    def newWidget(self, title, text):
+        widget = QWidget(self)
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(title, widget))
+        edit = QTextEdit(widget)
+        edit.setReadOnly(True)
+        edit.setLineWrapMode(False)
+        edit.setPlainText(text)
+        layout.addWidget(edit)
+        widget.setLayout(layout)
+        return widget
+    
+    def toFile(self, text):
+        path = QFileDialog.getSaveFileName(self, None, None, 'Text files (*.txt);;All Files (*)')[0]
+        if path:
+            with open(path, 'w') as file:
+                file.write(text)
 
 
 class MainWidget(QWidget):
@@ -91,7 +110,7 @@ class MainWidget(QWidget):
         payload_layout.addWidget(QLabel('Payload'))
         
         self.payload_input = QLineEdit(self)
-        self.payload_input.setPlaceholderText('POST request payload')
+        self.payload_input.setPlaceholderText('Request payload')
         payload_layout.addWidget(self.payload_input)
         
         layout.addSpacing(8)
@@ -101,6 +120,9 @@ class MainWidget(QWidget):
         
         self.headers_input = QTextEdit(self)
         self.headers_input.setAcceptRichText(False)
+        self.headers_input.setPlaceholderText('http request headers')
+        self.headers_input.setLineWrapMode(False)
+        self.headers_input.setPlainText('User-Agent: Mozilla/5.0 Gecko/41.0 Firefox/41.0\nAccept: */*')
         layout.addWidget(self.headers_input)
         
         self.send_btn = QPushButton('Send', self)
@@ -127,7 +149,9 @@ class MainWidget(QWidget):
         
         try:
             if method == 'GET':
-                request = requests.get(url, headers=headers)
+                request = requests.get(url, headers=headers, allow_redirects=True)
+            elif method == 'POST':
+                request = requests.post(url, ... ,headers=headers, allow_redirects=True)
             
         except Exception as error:
             ErrorMessage('An error occured during the request :\n'+str(error))
