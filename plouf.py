@@ -14,6 +14,9 @@ def StrToDict(string: str):
     pairs = string.split('\n')
     dic = {}
     for pair in pairs:
+        if not ':' in pair:
+            ErrorMessage('Syntax Error : '+pair)
+            continue
         key, value = pair.split(':')
         key = key.strip()
         value = value.strip()
@@ -40,6 +43,7 @@ class Response(QDialog):
         self.setLayout(layout)
         
         splitter = QSplitter(Qt.Vertical, self)
+        splitter.setChildrenCollapsible(False)
         splitter.addWidget(self.newWidget('Headers', headers))
         splitter.addWidget(self.newWidget('Response', text))
         layout.addWidget(splitter)
@@ -87,6 +91,7 @@ class MainWidget(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         layout = QVBoxLayout()
+        self.setLayout(layout)
         
         url_layout = QHBoxLayout()
         url_layout.addWidget(QLabel('Url', self))
@@ -106,30 +111,41 @@ class MainWidget(QWidget):
         
         layout.addLayout(url_layout)
         
-        payload_layout = QHBoxLayout()
-        payload_layout.addWidget(QLabel('Payload'))
+        splitter = QSplitter(Qt.Vertical, self)
+        splitter.setChildrenCollapsible(False)
         
-        self.payload_input = QLineEdit(self)
-        self.payload_input.setPlaceholderText('Request payload')
-        payload_layout.addWidget(self.payload_input)
+        widget1, self.payload_input = self.newTextEdit('Data', 'data to send')
+        splitter.addWidget(widget1)
         
-        layout.addSpacing(8)
-        layout.addLayout(payload_layout)
-        
-        layout.addWidget(QLabel('Headers', self))
-        
-        self.headers_input = QTextEdit(self)
-        self.headers_input.setAcceptRichText(False)
-        self.headers_input.setPlaceholderText('http request headers')
-        self.headers_input.setLineWrapMode(False)
+        widget2, self.headers_input = self.newTextEdit('Headers', 'http request headers')
+        splitter.addWidget(widget2)
         self.headers_input.setPlainText('User-Agent: Mozilla/5.0 Gecko/41.0 Firefox/41.0\nAccept: */*')
-        layout.addWidget(self.headers_input)
+        
+        splitter.setSizes((0, 300))
+        layout.addWidget(splitter)
         
         self.send_btn = QPushButton('Send', self)
         self.send_btn.clicked.connect(self.Send)
         layout.addWidget(self.send_btn)
-        
-        self.setLayout(layout)
+    
+    def newTextEdit(self, title, placeholder):
+        widget = QWidget(self)
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(title, widget))
+        edit = QTextEdit(widget)
+        edit.setAcceptRichText(False)
+        edit.setLineWrapMode(False)
+        edit.setPlaceholderText(placeholder)
+        layout.addWidget(edit)
+        widget.setLayout(layout)
+        return widget, edit
+    
+    def get(self, edit):
+        data = edit.toPlainText()
+        if data:
+            return StrToDict(data)
+        else:
+            return {}
     
     def Send(self):
         url = self.url_input.text()
@@ -139,19 +155,18 @@ class MainWidget(QWidget):
         if url == '127.0.0.1':
             url = 'http://' + url
         
-        headers = self.headers_input.toPlainText()
-        if headers:
-            headers = StrToDict(headers)
-        else:
-            headers = {}
-        
         method = self.method_menu.currentText()
+        redirect = window.ac_redirect.isChecked()
+        headers = self.get(self.headers_input)
+        
+        if method != 'GET':
+            data = self.get(self.payload_input)
         
         try:
             if method == 'GET':
-                request = requests.get(url, headers=headers, allow_redirects=True)
+                request = requests.get(url, headers=headers, allow_redirects=redirect)
             elif method == 'POST':
-                request = requests.post(url, ... ,headers=headers, allow_redirects=True)
+                request = requests.post(url, data=data, headers=headers, allow_redirects=redirect)
             
         except Exception as error:
             ErrorMessage('An error occured during the request :\n'+str(error))
@@ -167,6 +182,7 @@ class Window(QMainWindow):
         self.setWindowTitle('Plouf 2.0')
         w, h = 650, 400
         self.setGeometry(int(SCREEN_SIZE[0]/2 - w/2), int(SCREEN_SIZE[1]/2 - h/2), w, h)
+        
         self.setupActions()
         self.setupToolbar()
         
@@ -174,12 +190,17 @@ class Window(QMainWindow):
         self.setCentralWidget(self.w)
     
     def setupActions(self):
+        self.ac_redirect = QAction('&Redirect requests', shortcut='Ctrl+r', checkable=True, checked=True)
         self.ac_about = QAction('&About', shortcut='Alt+a')
+        self.ac_doc = QAction('&Documentation', shortcut='Alt+d')
     
     def setupToolbar(self):
-        toolbar = self.addToolBar('toolbar')
-        toolbar.setMovable(False)
-        toolbar.addAction(self.ac_about)
+        toolbar = self.menuBar()
+        options = toolbar.addMenu('&Options')
+        options.addAction(self.ac_redirect)
+        help = toolbar.addMenu('&Help')
+        help.addAction(self.ac_about)
+        help.addAction(self.ac_doc)
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
