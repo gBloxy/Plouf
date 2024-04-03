@@ -10,6 +10,15 @@ def ErrorMessage(msg: str):
     QMessageBox.critical(window.w, 'Error', msg)
 
 
+def InfoMessage(title: str, msg: str):
+    dialog = QMessageBox(window)
+    dialog.setWindowTitle(title)
+    dialog.setStandardButtons(QMessageBox.Ok)
+    dialog.setTextFormat(Qt.RichText)
+    dialog.setText(msg)
+    dialog.show()
+
+
 def StrToDict(string: str):
     pairs = string.split('\n')
     dic = {}
@@ -105,7 +114,7 @@ class MainWidget(QWidget):
         
         self.method_menu = QComboBox(self)
         self.method_menu.setMinimumWidth(85)
-        self.method_menu.addItems(['GET', 'POST'])
+        self.method_menu.addItems(['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
         url_layout.addWidget(QLabel('Method', self))
         url_layout.addWidget(self.method_menu)
         
@@ -165,8 +174,22 @@ class MainWidget(QWidget):
         try:
             if method == 'GET':
                 request = requests.get(url, headers=headers, allow_redirects=redirect)
+            elif method == 'HEAD':
+                request = requests.head(url, headers=headers, allow_redirects=redirect)
             elif method == 'POST':
                 request = requests.post(url, data=data, headers=headers, allow_redirects=redirect)
+            elif method == 'PUT':
+                request = requests.put(url, data=data, headers=headers, allow_redirects=redirect)
+            elif method == 'DELETE':
+                request = requests.delete(url, headers=headers, allow_redirects=redirect)
+            elif method == 'PATCH':
+                request = requests.patch(url, data=data, headers=headers, allow_redirects=redirect)
+            elif method == 'OPTIONS':
+                request = requests.options(url, headers=headers, allow_redirects=redirect)
+            elif method == 'CONNECT':
+                ...
+            elif method == 'TRACE':
+                ...
             
         except Exception as error:
             ErrorMessage('An error occured during the request :\n'+str(error))
@@ -192,7 +215,9 @@ class Window(QMainWindow):
     def setupActions(self):
         self.ac_redirect = QAction('&Redirect requests', shortcut='Ctrl+r', checkable=True, checked=True)
         self.ac_about = QAction('&About', shortcut='Alt+a')
+        self.ac_about.triggered.connect(lambda: InfoMessage('About', about_text))
         self.ac_doc = QAction('&Documentation', shortcut='Alt+d')
+        self.ac_doc.triggered.connect(lambda: InfoMessage('Documentation', doc_text))
     
     def setupToolbar(self):
         toolbar = self.menuBar()
@@ -205,6 +230,39 @@ class Window(QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
+    
+    def about(self):
+        QMessageBox.about(self, 'About', self.about_text)
+
+
+about_text = (
+    'This tool is used to send custom http or https requests.<br>'
+    'It does not work with other network protocols.<br>'
+    '<br>'
+    'This tool is not professional and only meant for testing<br>'
+    'and CTFs<br>'
+    '<br>'
+    'It was made by g_Bloxy in python. The code source is<br>'
+    'disponible on github <a href=https://github.com/gBloxy/Plouf>here</a>.<br>'
+    'Thank you for using Plouf !'
+)
+
+doc_text = (
+    'To make a request, first choose the targeted url,<br>'
+    'select the request method with the drop down menu,<br>'
+    'then custom the headers, and finally click the Send button.<br>'
+    '<br>'
+    'You can send a request with no headers just by clearing<br>'
+    'the headers input box.<br>'
+    'The request is sended even if there is an error in the<br>'
+    'headers. The broken headers will not be sended to<br>'
+    'the server.<br>'
+    '<br>'
+    'The data input box is used to write the data to send<br>'
+    'to the server in case of a POST request.<br>'
+    'It will be ignored in the case of a GET request.<br>'
+    'It follow the same text format as the headers input.'
+)
 
 
 if __name__ == '__main__':
